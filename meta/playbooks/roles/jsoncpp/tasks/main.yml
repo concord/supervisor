@@ -1,0 +1,25 @@
+---
+
+- name: Sync source from git
+  git:
+    repo='https://github.com/open-source-parsers/jsoncpp.git'
+    accept_hostkey=yes
+    clone=yes
+    dest='{{goobly_cache_dir}}/jsoncpp'
+    update=yes
+    recursive=yes
+    force=yes
+    
+- name: Run cmake
+  command:
+    cmake -DBUILD_TESTS=0 -DCMAKE_INSTALL_PREFIX:PATH="{{third_party_dir}}" '{{goobly_cache_dir}}/jsoncpp/'
+  args:
+    chdir: '{{goobly_cache_dir}}/jsoncpp/'
+    creates: '{{goobly_cache_dir}}/jsoncpp/Makefile'
+
+- name: Compile and install
+  command:
+    make -j{{ansible_processor_vcpus}} install
+  args:
+    chdir: '{{goobly_cache_dir}}/jsoncpp'
+    creates: '{{third_party_dir}}/lib/libjsoncpp.a'

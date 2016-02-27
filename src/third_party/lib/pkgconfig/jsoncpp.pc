@@ -1,0 +1,11 @@
+prefix=/home/rblafford/workspace/smurf/meta/../src/third_party
+exec_prefix=${prefix}
+libdir=/home/rblafford/workspace/smurf/meta/../src/third_party/lib
+includedir=/home/rblafford/workspace/smurf/meta/../src/third_party/include
+
+Name: jsoncpp
+Description: A C++ library for interacting with JSON
+Version: 1.7.0
+URL: https://github.com/open-source-parsers/jsoncpp
+Libs: -L${libdir} -ljsoncpp
+Cflags: -I${includedir}
