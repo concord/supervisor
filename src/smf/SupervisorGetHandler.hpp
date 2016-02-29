@@ -10,9 +10,7 @@ namespace Concord {
 
 class SupervisorGetHandler : public proxygen::RequestHandler {
  public:
-  using SubprocessPtr = std::shared_ptr<folly::Subprocess>;
-
-  explicit SupervisorGetHandler(const std::vector<SubprocessPtr> &processes);
+  explicit SupervisorGetHandler(const std::vector<pid_t> &processes);
 
   void
   onRequest(std::unique_ptr<proxygen::HTTPMessage> headers) noexcept override;
@@ -28,9 +26,9 @@ class SupervisorGetHandler : public proxygen::RequestHandler {
   void onError(proxygen::ProxygenError err) noexcept override;
 
  private:
-  Json::Value inspectProcesses(); // add const
+  Json::Value inspectProcesses();
 
-  std::vector<pid_t> processes_;
-  std::string process_info_;
+  Json::Value process_info_;
+  const std::vector<pid_t> processes_;
 };
 }

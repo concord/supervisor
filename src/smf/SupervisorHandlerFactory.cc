@@ -50,16 +50,16 @@ proxygen::RequestHandler *SupervisorHandlerFactory::onRequest(
 
 proxygen::RequestHandler *SupervisorHandlerFactory::handleGetRequest(
   const boost::optional<int> &process_id) {
-  std::vector<SubprocessPtr> processes;
+  std::vector<pid_t> processes;
   if(process_id) {
     auto found = processMap_.find(*process_id);
     if(found == processMap_.end()) {
       return new BadRequestHandler("A process with that ID does not exist");
     }
-    processes.push_back(found->second);
+    processes.push_back(found->second->pid());
   } else {
     for(const auto &p : processMap_) {
-      processes.push_back(p.second);
+      processes.push_back(p.second->pid());
     }
   }
   return new SupervisorGetHandler(processes);

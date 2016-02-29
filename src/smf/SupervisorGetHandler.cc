@@ -25,58 +25,55 @@ Json::Value SupervisorGetHandler::inspectProcesses() {
                              | PROC_FILLSTATUS | PROC_FILLWCHAN,
                            processes_.data());
   if(proc == NULL) {
-    return Json::Value();
+    return Json::Value(Json::nullValue);
   }
   Json::Value json_info(Json::arrayValue);
   proc_t process_info;
   memset(&process_info, 0, sizeof(process_info));
   while(readproc(proc, &process_info) != NULL) {
     Json::Value entry(Json::objectValue);
-    entry["tid"] =               std::to_string(process_info.tid);
-    entry["ppid"] =              std::to_string(process_info.ppid);
-    entry["state"] =             std::to_string(process_info.state);
-    entry["utime"] =             std::to_string(process_info.utime);
-    entry["stime"] =             std::to_string(process_info.stime);
-    entry["vmem_pages"] =        std::to_string(process_info.size);
+    entry["tid"] = process_info.tid;
+    entry["ppid"] = process_info.ppid;
+    entry["state"] = process_info.state;
+    entry["utime"] = process_info.utime;
+    entry["stime"] = process_info.stime;
+    entry["vmem_pages"] = std::to_string(process_info.size);
     entry["residentmem_pages"] = std::to_string(process_info.resident);
-    entry["share_pages"] =       std::to_string(process_info.share);
+    entry["share_pages"] = std::to_string(process_info.share);
     json_info.append(entry);
   }
-  // CHECK(processes_.length() == proc.length()) << "Didn't get desired pids";
-
+  CHECK(processes_.size() == json_info.size())
+    << "Gathered incorrect process info";
   closeproc(proc);
   return json_info;
 }
 
 SupervisorGetHandler::SupervisorGetHandler(
-  const std::vector<SubprocessPtr> &processes) {
-  for(const auto &process : processes) {
-    processes_.push_back(process->pid());
-  }
-}
+  const std::vector<pid_t> &processes)
+  : processes_(processes) {}
 
 void SupervisorGetHandler::onRequest(
   std::unique_ptr<proxygen::HTTPMessage> headers) noexcept {
-  Json::Value info = Json::Value(Json::objectValue);
-  if(info.isNull()) {
-    info["error"] = "No processes were inspected";
+  Json::Value process_data(inspectProcesses());
+  if(process_data.isNull()) {
+    process_info_["error"] = "No processes were inspected";
   } else {
-    info["process_info"] = inspectProcesses();
+    process_info_["process_info"] = process_data;
   }
-  process_info_ = Json::FastWriter().write(info);
 }
 
 void SupervisorGetHandler::onBody(std::unique_ptr<folly::IOBuf> body) noexcept {
 }
 
 void SupervisorGetHandler::onEOM() noexcept {
-  // if(process_info_.asString()) {
-  //   // error happened
-  //   return;
-  // }
+  const auto serialized_response = Json::FastWriter().write(process_info_);
+  const auto http_status = process_info_.isMember("error") ?
+                             std::make_tuple(400, "ERROR") :
+                             std::make_tuple(200, "OK");
+
   proxygen::ResponseBuilder(downstream_)
-    .status(200, "OK")
-    .body(folly::IOBuf::copyBuffer(process_info_, 0, 0))
+    .status(std::get<0>(http_status), std::get<1>(http_status))
+    .body(folly::IOBuf::copyBuffer(serialized_response, 0, 0))
     .sendWithEOM();
 }
 
