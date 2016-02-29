@@ -9,9 +9,13 @@ namespace Concord {
 const std::string SupervisorHandlerFactory::REST_STR = "process";
 
 void SupervisorHandlerFactory::onServerStart(
-  folly::EventBase *evb) noexcept {}
+  folly::EventBase *evb) noexcept {
+  LOG(INFO) << "Supervisor service started";
+}
 
-void SupervisorHandlerFactory::onServerStop() noexcept {}
+void SupervisorHandlerFactory::onServerStop() noexcept {
+  LOG(INFO) << "Supervisor service stopped";
+}
 
 proxygen::RequestHandler *SupervisorHandlerFactory::onRequest(
   proxygen::RequestHandler *,
@@ -40,7 +44,8 @@ proxygen::RequestHandler *SupervisorHandlerFactory::onRequest(
   case HTTPMethod::GET:
     return handleGetRequest(findProcessId(message->getQueryString()));
   case HTTPMethod::POST:
-    return new SupervisorPostHandler();
+    // must insert into the map
+    return new SupervisorPostHandler(processMap_);
   case HTTPMethod::DELETE:
     return handleDeleteRequest(findProcessId(message->getQueryString()));
   default:
@@ -52,14 +57,16 @@ proxygen::RequestHandler *SupervisorHandlerFactory::handleGetRequest(
   const boost::optional<int> &process_id) {
   std::vector<pid_t> processes;
   if(process_id) {
-    auto found = processMap_.find(*process_id);
-    if(found == processMap_.end()) {
+    auto found = processMap_->find(*process_id);
+    if(found == processMap_->end()) {
       return new BadRequestHandler("A process with that ID does not exist");
     }
     processes.push_back(found->second->pid());
   } else {
-    for(const auto &p : processMap_) {
-      processes.push_back(p.second->pid());
+    SYNCHRONIZED_CONST(processMap_) {
+      for(const auto &p : processMap_) {
+	processes.push_back(p.second->pid());
+      }
     }
   }
   return new SupervisorGetHandler(processes);
@@ -70,14 +77,15 @@ proxygen::RequestHandler *SupervisorHandlerFactory::handleDeleteRequest(
   if(!process_id) {
     return new BadRequestHandler("Unsupported action - Delete must use a process id");
   }
-  auto found = processMap_.find(*process_id);
-  if(found == processMap_.end()) {
+  auto found = processMap_->find(*process_id);
+  if(found == processMap_->end()) {
     return new BadRequestHandler("A process with that ID does not exist");
   }
-  processMap_.erase(found);
+  processMap_->erase(found);
   return new SupervisorDeleteHandler(found->second);
 }
 
+/** Maybe return an array representing elements in path? */
 boost::optional<int>
 SupervisorHandlerFactory::findProcessId(const std::string &query_string) {
   std::size_t found = query_string.find(SupervisorHandlerFactory::REST_STR);

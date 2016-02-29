@@ -28,5 +28,4 @@ class SupervisorDeleteHandler : public proxygen::RequestHandler {
  private:
   SubprocessPtr process_;
 };
-
 }
